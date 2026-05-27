@@ -5,7 +5,7 @@ from RAW.modals import Tool
 from RAW.modals.tools import ToolParam
 from src.utils import logger
 
-API_BASE_URL = os.getenv("BACKEND_HOST", "http://192.168.1.62:3000")
+API_BASE_URL = os.getenv("BACKEND_HOST", "http://127.0.0.1:3000")
 
 async def get_uoms():
     """Fetch the list of valid Units of Measure (UOM)."""
@@ -13,7 +13,7 @@ async def get_uoms():
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json={})
-            uoms = response.json().get("data", [])
+            uoms = response.json().get("data", {}).get("data",[])
             result_str = "Available Units of Measure (UOM):\n"
             for u in uoms:
                 result_str += f"{u['id']} - {u['unit_name']}\n"
