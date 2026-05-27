@@ -125,7 +125,7 @@ messenger.onMessage(async (msg) => {
       console.error(
         `❌ Admin service error: ${e.message}. Defaulting to user 1.`
       );
-      // userId = 1; // Fallback
+      userId = 1; // Fallback
       return;
     }
 

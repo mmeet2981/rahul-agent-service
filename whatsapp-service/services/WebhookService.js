@@ -24,7 +24,7 @@ class LLMService {
     let attempts = 0;
     while (attempts < url_config.retries) {
       try {
-        await axios.post(`${config.hosts.agent}/${url_config.url}`, payload, {
+        await axios.post(`${url_config.url}`, payload, {
           headers: {
             "X-Hub-Signature-256": `sha256=${signature}`,
             "Content-Type": "application/json",

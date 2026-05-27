@@ -1,16 +1,10 @@
 // migrate.js
-require('dotenv').config();
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
 
-const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASS,
-    port: process.env.DB_PORT,
-});
+const pool = new Pool(config.db);
 
 async function runMigrations() {
     const migrationsDir = path.join(__dirname, 'migrations');

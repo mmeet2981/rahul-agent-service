@@ -15,7 +15,10 @@ class MessageController {
       console.log(`Sending message to JID: ${jid}`);
 
       const result = await this.messenger.sendMessage(jid, message);
-      // console.log(result);
+      if (!result.success) {
+        throw new Error(result.error || "Unknown sending error");
+      }
+
       await this.db.saveMessage({
         whatsapp_id: result.response.id.id,
         from_number: number,
@@ -28,7 +31,7 @@ class MessageController {
       res.json({ status: "sent" });
     } catch (error) {
       console.error("Error in sendMessage controller:", error);
-      res.status(500).json({ error: "Failed to send message" });
+      res.status(500).json({ error: "Failed to send message `{" + error + "}`" });
     }
   };
 
