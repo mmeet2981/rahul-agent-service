@@ -78,7 +78,11 @@ async def process_job(payload_data):
                     logger.error(f"Failed to notify Node service: {e}")
         elif message_type == "email":
             # Send response via email service
-            node_api_url = f"http://localhost:{os.getenv('EMAIL_SERVICE_PORT', '3001')}/send"
+            email_host = os.getenv(
+                "EMAIL_HOST",
+                f"http://127.0.0.1:{os.getenv('EMAIL_SERVICE_PORT', '3001')}"
+            )
+            node_api_url = f"{email_host}/send"
             recipient_email = assistant_msg.sender_email
             
             logger.info(f"Sending email response to: {recipient_email}")

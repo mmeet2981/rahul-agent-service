@@ -217,18 +217,32 @@ class GeminiLLM(BaseLLM):
             if not name or not re.match(r'^[a-zA-Z_][a-zA-Z0-9_\.\-]*$', name) or len(name) > 64:
                 name = f"_{name}" if name else "tool_function"
                 name = re.sub(r'[^a-zA-Z0-9_\.\-]', '', name)[:64]
+
+            properties = {}
+            for param in tool.parameters:
+                param_def = {
+                    "type": param.type,
+                    "description": param.description or ""
+                }
+                if param.type == "array":
+                    items = getattr(param, "items", None)
+                    if items:
+                        param_def["items"] = items
+                    else:
+                        param_def["items"] = {"type": "string"}
+                
+                enum = getattr(param, "enum", None)
+                if enum:
+                    param_def["enum"] = enum
+                
+                properties[param.name] = param_def
+
             return {
                 "name": name,
                 "description": tool.description or "",
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        param.name: {
-                            "type": param.type,
-                            "description": param.description or ""
-                        }
-                        for param in tool.parameters
-                    },
+                    "properties": properties,
                     "required": [
                         param.name for param in tool.parameters if param.required
                     ]
