@@ -8,6 +8,9 @@ def get_primary_llm() -> VLLM | GroqLLM:
     """
     Returns the primary LLM instance (VLLM).
     """
+    if os.environ.get("VLLM_API_KEY"):
+        return VLLM(api_key=os.environ.get("VLLM_API_KEY"), model=os.environ.get("VLLM_MODEL", "Qwen/Qwen2.5-32B-Instruct-AWQ"), base_url=os.environ.get("VLLM_HOST", "https://api.openai.com"))    
+        
     if os.environ.get("GEMINI_API_KEY"):
         return GeminiLLM(api_key=os.environ.get("GEMINI_API_KEY"), model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"))
     if os.environ.get("GROQ_API_KEY"):
