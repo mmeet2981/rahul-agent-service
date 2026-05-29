@@ -5,7 +5,7 @@ services:
     container_name: agent-service-redis
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.prod
     command: redis-server --appendonly yes --databases 16
     volumes:
       - redis_data:/data
@@ -20,12 +20,13 @@ services:
     container_name: agent-service-minio
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.prod
 
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-    command: gateway azure
+    command: server /data --console-address ":9001"
+
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 10s
@@ -33,17 +34,12 @@ services:
       retries: 5
 
   email-service:
-    build:
-      context: ./email-service
+    image: rahulaiservices.azurecr.io/email-service:latest
     container_name: agent-service-email-service
     restart: unless-stopped
 
     env_file:
-      - .env
-    dns:
-      - 8.8.8.8
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - .env.prod
     environment:
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
@@ -60,15 +56,12 @@ services:
         condition: service_healthy
 
   whatsapp-service:
-    build:
-      context: ./whatsapp-service
+    image: rahulaiservices.azurecr.io/whatsapp-service:latest
     container_name: agent-service-whatsapp-service
     restart: unless-stopped
 
     env_file:
-      - .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - .env.prod
     environment:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
@@ -82,17 +75,13 @@ services:
         condition: service_healthy
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: rahulaiservices.azurecr.io/app:latest
     container_name: agent-service-app
     restart: unless-stopped
     ports:
       - "${PORT:-3030}:${PORT:-3030}"
     env_file:
-      - .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - .env.prod
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -103,15 +92,11 @@ services:
         condition: service_healthy
 
   llm-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: rahulaiservices.azurecr.io/llm-worker:latest
     container_name: agent-service-llm-worker
     restart: unless-stopped
     env_file:
-      - .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - .env.prod
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -122,15 +107,11 @@ services:
         condition: service_healthy
 
   ocr-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: rahulaiservices.azurecr.io/ocr-worker:latest
     container_name: agent-service-ocr-worker
     restart: unless-stopped
     env_file:
-      - .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - .env.prod
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -141,15 +122,11 @@ services:
         condition: service_healthy
 
   so-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: rahulaiservices.azurecr.io/so-worker:latest
     container_name: agent-service-so-worker
     restart: unless-stopped
     env_file:
-      - .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - .env.prod
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379

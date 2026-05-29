@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 .env
+.env.prod
 .marscode
 
 # Local data and reports
