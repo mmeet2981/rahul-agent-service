@@ -18,6 +18,7 @@ OPENAI_MODEL_CAPABILITIES: Dict[str, List[LLMCapability]] = {
     "Qwen/Qwen2.5-32B-Instruct-AWQ": [LLMCapability.TOOLS, LLMCapability.COMPLETION],
     "Qwen/Qwen2.5-14B-Instruct-AWQ": [LLMCapability.TOOLS, LLMCapability.COMPLETION],
     "gpt-4o-mini": [LLMCapability.TOOLS, LLMCapability.COMPLETION],
+    "QuantTrio/Qwen3.5-9B-AWQ": [LLMCapability.TOOLS, LLMCapability.COMPLETION],
     "Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4": [LLMCapability.TOOLS, LLMCapability.COMPLETION],
     "Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4": [LLMCapability.TOOLS, LLMCapability.COMPLETION],
     "google/gemma-3-12b-it": [LLMCapability.COMPLETION, LLMCapability.VISION],
@@ -30,11 +31,12 @@ OPENAI_MODEL_CAPABILITIES: Dict[str, List[LLMCapability]] = {
 _Role = Literal["user", "assistant", "system", "tool"]
 
 class VLLM(BaseLLM):
-    def __init__(self, api_key: str, model: str = "Qwen/Qwen2.5-14B-Instruct-AWQ", base_url: str = "http://127.0.0.1:11434", options: Optional[VLLMOptions] = None, logger: Logger = logger):
+    def __init__(self, api_key: str = "", model: str = "Qwen/Qwen2.5-14B-Instruct-AWQ", base_url: str = "http://127.0.0.1:11434", options: Optional[VLLMOptions] = None, logger: Logger = logger):
         super().__init__()
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
         self.client = RequestsClient(
             base_url=f"{base_url}/v1",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=headers,
             timeout=300,
             logger=logger
         )
