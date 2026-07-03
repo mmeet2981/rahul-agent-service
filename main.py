@@ -54,7 +54,7 @@ app.include_router(SSERouter)
 if __name__ == "__main__":
     import uvicorn
 
-    DEFAULT_PORT = "3030"
+    DEFAULT_PORT = "3031"
     try:
         port = int(os.environ.get("PORT", DEFAULT_PORT))
     except Exception:
