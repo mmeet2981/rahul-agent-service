@@ -74,13 +74,13 @@ class MonthlyBestSellerMarketingJob(BaseCronJob):
                 SELECT 
                     em.id as customer_id,
                     em.name as company_name,
-                    COALESCE(poc.email, crm.email) as email,
-                    COALESCE(poc.name, crm.poc_name, em.name) as contact_name
+                    poc.email as email,
+                    COALESCE(poc.name, em.name) as contact_name
                 FROM entity_master em
-                LEFT JOIN poc_details poc ON poc.entity_id = em.id AND poc.email IS NOT NULL AND poc.email <> ''
-                LEFT JOIN crm_contacts crm ON crm.company_id = em.id AND crm.email IS NOT NULL AND crm.email <> ''
+                JOIN poc_details poc ON poc.entity_id = em.id
                 WHERE em.is_deleted = FALSE
-                  AND (poc.email IS NOT NULL OR crm.email IS NOT NULL);
+                  AND poc.email IS NOT NULL 
+                  AND poc.email <> '';
             """
 
             try:
