@@ -32,8 +32,8 @@ class PurchaseSuggestionConfig:
     # ── Purchase Order Defaults ────────────────────────────────────────────
     PO_PURCHASE_TYPE_ID: int = int(os.getenv("PO_PURCHASE_TYPE_ID", "3"))
     PO_STATUS_ID: int = int(os.getenv("PO_STATUS_ID", "34"))          # "pending" status
-    PO_BILL_TO_ADDRESS_ID: int = int(os.getenv("PO_BILL_TO_ADDRESS_ID", "3597"))
-    PO_SHIP_TO_ADDRESS_ID: int = int(os.getenv("PO_SHIP_TO_ADDRESS_ID", "3597"))
+    # PO_BILL_TO_ADDRESS_ID: int = int(os.getenv("PO_BILL_TO_ADDRESS_ID", "3597"))
+    # PO_SHIP_TO_ADDRESS_ID: int = int(os.getenv("PO_SHIP_TO_ADDRESS_ID", "3597"))
     PO_TAX_TYPE_IDS: list = [
         int(x) for x in os.getenv("PO_TAX_TYPE_IDS", "19,20").split(",") if x
     ]

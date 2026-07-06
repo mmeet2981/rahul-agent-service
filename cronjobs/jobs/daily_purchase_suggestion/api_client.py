@@ -117,8 +117,8 @@ class PurchaseApiClient:
                 }
                 for tax_id in self._config.PO_TAX_TYPE_IDS
             ],
-            "bill_to_address_id": self._config.PO_BILL_TO_ADDRESS_ID,
-            "ship_to_address": self._config.PO_SHIP_TO_ADDRESS_ID,
+            # "bill_to_address_id": self._config.PO_BILL_TO_ADDRESS_ID,
+            # "ship_to_address": self._config.PO_SHIP_TO_ADDRESS_ID,
             "terms_ids": [],
         }
 

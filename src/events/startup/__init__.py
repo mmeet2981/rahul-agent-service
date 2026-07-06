@@ -6,4 +6,9 @@ _scheduler = CronScheduler()
 
 async def startup(app: FastAPI) -> None:
     """Called once at application boot. Starts the cron scheduler."""
-    _scheduler.start()
+    _scheduler.start()
+
+
+async def shutdown(app: FastAPI) -> None:
+    """Called once when the app shuts down. Stops the cron scheduler."""
+    _scheduler.stop()

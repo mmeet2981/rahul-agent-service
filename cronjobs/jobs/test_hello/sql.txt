@@ -1,0 +1,161 @@
+SELECT
+    -- ── Product identifiers ───────────────────────────────────────────────
+    pl.id                                                   AS product_id,
+    pl.product_name                                         AS item_name,
+    pl.sku_code,
+    pl.hsn_code,
+
+    -- ── uom_id & rate: from most recent item_master entry for this product ─
+    -- (item_master rows are PO line records; one product can have many rows)
+    (
+        SELECT im2.uom_id
+        FROM   item_master im2
+        WHERE  im2.product_id = pl.id
+          AND  im2.is_deleted = false
+        ORDER  BY im2.created_at DESC
+        LIMIT  1
+    )                                                       AS uom_id,
+
+    COALESCE(
+        -- Prefer active product_price over item_master.rate
+        (
+            SELECT pp.price
+            FROM   product_price pp
+            WHERE  pp.product_id = pl.id
+              AND  pp.is_active   = true
+              AND  (pp.effective_to IS NULL OR pp.effective_to >= CURRENT_DATE)
+            ORDER  BY pp.effective_from DESC
+            LIMIT  1
+        ),
+        -- Fallback: rate from most recent item_master row
+        (
+            SELECT im2.rate
+            FROM   item_master im2
+            WHERE  im2.product_id = pl.id
+              AND  im2.is_deleted = false
+            ORDER  BY im2.created_at DESC
+            LIMIT  1
+        ),
+        0
+    )                                                       AS rate,
+
+    -- ── min_stock_qty ─────────────────────────────────────────────────────
+    -- Source: product_list.min_threshold_stock
+    -- item_master has NO min_stock_qty column
+    COALESCE(pl.min_threshold_stock, 0)                     AS min_stock_qty,
+
+    -- ── supplier_entity_id ────────────────────────────────────────────────
+    -- Source: purchase_details.supplier_entity_id
+    -- Path: item_master (product_id=pl.id) -> grn_items (item_id)
+    --       -> grns (grn_id) -> purchase_details (po_id)
+    -- Most recent supplier used for this product
+    (
+        SELECT pd.supplier_entity_id
+        FROM   item_master im2
+        JOIN   grn_items gi ON gi.item_id   = im2.item_id  AND gi.is_deleted = false
+        JOIN   grns g       ON g.id         = gi.grn_id    AND g.is_deleted  = false
+        JOIN   purchase_details pd ON pd.id = g.po_id      AND pd.is_deleted = false
+        WHERE  im2.product_id = pl.id
+          AND  im2.is_deleted = false
+        ORDER  BY pd.created_at DESC
+        LIMIT  1
+    )                                                       AS supplier_entity_id,
+
+    -- ── current_stock ─────────────────────────────────────────────────────
+    -- Source: inventory_units
+    -- Link: inventory_units.item_id -> item_master.item_id
+    --       item_master.product_id  -> product_list.id
+    -- inventory_units has NO product_id column — MUST go via item_master
+    COALESCE(
+        (
+            SELECT SUM(iu.quantity)
+            FROM   item_master im2
+            JOIN   inventory_units iu ON iu.item_id    = im2.item_id
+                                     AND iu.is_deleted = false
+            WHERE  im2.product_id = pl.id
+              AND  im2.is_deleted = false
+        ), 0
+    )                                                       AS current_stock,
+
+    -- ── pending_inwards ───────────────────────────────────────────────────
+    -- "Qty on PENDING POs (status_id=34) not yet received"
+    -- Formula: grn_items.po_quantity - grn_items.received_quantity
+    -- Path: item_master (product_id=pl.id)
+    --       -> grn_items (item_id)
+    --       -> grns (grn_id)
+    --       -> purchase_details (po_id, status_id=34)
+    -- item_lines NOT used here — it has NO quantity column & links only to SOs
+    COALESCE(
+        (
+            SELECT SUM(gi.po_quantity - COALESCE(gi.received_quantity, 0))
+            FROM   item_master im2
+            JOIN   grn_items gi ON gi.item_id   = im2.item_id  AND gi.is_deleted = false
+            JOIN   grns g       ON g.id         = gi.grn_id    AND g.is_deleted  = false
+            JOIN   purchase_details pd ON pd.id = g.po_id      AND pd.is_deleted = false
+            WHERE  im2.product_id = pl.id
+              AND  im2.is_deleted = false
+              AND  pd.status_id   = 34           -- pending
+              AND  pd.is_deleted  = false
+        ), 0
+    )                                                       AS pending_inwards,
+
+    -- ── open_sale_qty ─────────────────────────────────────────────────────
+    -- "is_fulfilled = false" equivalent: sales_details.pending_quantity > 0
+    -- Table is sales_details (NOT sale_details — that table doesn't exist)
+    -- sales_details has NO product_id, NO is_fulfilled column
+    -- Path: sales_details.item_line_ids[] -> item_lines.id
+    --       product matched via:
+    --         COALESCE(item_lines.product_id,
+    --                  (item_lines.details->>'product_id')::bigint)
+    -- Quantity: item_lines.details->>'quantity'  (NO direct quantity column)
+    COALESCE(
+        (
+            SELECT SUM((il.details->>'quantity')::numeric)
+            FROM   sales_details sd
+            JOIN   item_lines il ON il.id = ANY(sd.item_line_ids)
+            WHERE  COALESCE(il.product_id,
+                            (il.details->>'product_id')::bigint) = pl.id
+              AND  sd.is_deleted       = false
+              AND  sd.pending_quantity > 0        -- is_fulfilled = false
+              AND  il.is_deleted       = false
+        ), 0
+    )                                                       AS open_sale_qty,
+
+    -- ── Equation evaluation ───────────────────────────────────────────────
+    -- needs_purchase = TRUE when:
+    --   current_stock + pending_inwards  <  min_stock_qty + open_sale_qty
+    CASE
+        WHEN (
+            COALESCE(
+                (SELECT SUM(iu.quantity)
+                 FROM item_master im2
+                 JOIN inventory_units iu ON iu.item_id = im2.item_id AND iu.is_deleted = false
+                 WHERE im2.product_id = pl.id AND im2.is_deleted = false), 0)
+            +
+            COALESCE(
+                (SELECT SUM(gi.po_quantity - COALESCE(gi.received_quantity, 0))
+                 FROM item_master im2
+                 JOIN grn_items gi ON gi.item_id = im2.item_id AND gi.is_deleted = false
+                 JOIN grns g ON g.id = gi.grn_id AND g.is_deleted = false
+                 JOIN purchase_details pd ON pd.id = g.po_id AND pd.is_deleted = false
+                 WHERE im2.product_id = pl.id AND im2.is_deleted = false
+                   AND pd.status_id = 34 AND pd.is_deleted = false), 0)
+        )
+        <
+        (
+            COALESCE(pl.min_threshold_stock, 0)
+            +
+            COALESCE(
+                (SELECT SUM((il.details->>'quantity')::numeric)
+                 FROM sales_details sd
+                 JOIN item_lines il ON il.id = ANY(sd.item_line_ids)
+                 WHERE COALESCE(il.product_id, (il.details->>'product_id')::bigint) = pl.id
+                   AND sd.is_deleted = false AND sd.pending_quantity > 0
+                   AND il.is_deleted = false), 0)
+        )
+        THEN true
+        ELSE false
+    END                                                     AS needs_purchase
+
+FROM product_list pl
+ORDER BY pl.id;
