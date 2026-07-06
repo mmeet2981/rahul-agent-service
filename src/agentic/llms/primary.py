@@ -1,7 +1,7 @@
 import os
 from .vllm import VLLM
 from src.utils import logger
-from .groq import GroqLLM
+from .groq import GroqLLM, GroqOptions
 from .gemini import GeminiLLM
 
 def get_primary_llm() -> VLLM | GroqLLM:
@@ -14,7 +14,7 @@ def get_primary_llm() -> VLLM | GroqLLM:
     if os.environ.get("GEMINI_API_KEY"):
         return GeminiLLM(api_key=os.environ.get("GEMINI_API_KEY"), model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"))
     if os.environ.get("GROQ_API_KEY"):
-        return GroqLLM(api_key=os.environ.get("GROQ_API_KEY"), model=os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b"))
+        return GroqLLM(api_key=os.environ.get("GROQ_API_KEY"), model=os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b"), options=GroqOptions(temperature=0.0))
     vllm_host = os.environ.get("VLLM_HOST", "http://127.0.0.1:11434")
     model_name = os.environ.get("VLLM_MODEL", "Qwen/Qwen2.5-32B-Instruct-AWQ")
     

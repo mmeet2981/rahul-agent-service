@@ -10,9 +10,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await startup(app)
@@ -20,6 +17,9 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await shutdown(app)
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 app.add_middleware(

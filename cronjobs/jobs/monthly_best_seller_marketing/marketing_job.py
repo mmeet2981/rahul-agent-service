@@ -1,7 +1,3 @@
-"""
-Monthly Best Seller Marketing Cron Job.
-Implements BaseCronJob to automate emailing top selling products to customers.
-"""
 import logging
 import os
 import httpx
@@ -62,40 +58,32 @@ class MonthlyBestSellerMarketingJob(BaseCronJob):
 
         # Step 2: Fetch target customer email contacts
         customers = []
-        if test_email:
-            logger.info(f"[MonthlyBestSellerMarketingJob] Running in TEST mode. Only sending to: {test_email}")
-            customers.append({
-                "company_name": "Test Company",
-                "email": test_email,
-                "contact_name": "Test User"
-            })
-        else:
-            customers_query = """
-                SELECT 
-                    em.id as customer_id,
-                    em.name as company_name,
-                    poc.email as email,
-                    COALESCE(poc.name, em.name) as contact_name
-                FROM entity_master em
-                JOIN poc_details poc ON poc.entity_id = em.id
-                WHERE em.is_deleted = FALSE
-                  AND poc.email IS NOT NULL 
-                  AND poc.email <> '';
-            """
+        customers_query = """
+            SELECT 
+                em.id as customer_id,
+                em.name as company_name,
+                poc.email as email,
+                COALESCE(poc.name, em.name) as contact_name
+            FROM entity_master em
+            JOIN poc_details poc ON poc.entity_id = em.id
+            WHERE em.is_deleted = FALSE
+              AND poc.email IS NOT NULL 
+              AND poc.email <> '';
+        """
 
-            try:
-                with get_db_cursor(commit=False, db_config=get_db_config()) as cursor:
-                    cursor.execute(customers_query)
-                    rows = cursor.fetchall()
-                    for row in rows:
-                        customers.append({
-                            "company_name": row["company_name"],
-                            "email": row["email"],
-                            "contact_name": row["contact_name"]
-                        })
-            except Exception as exc:
-                logger.error(f"[MonthlyBestSellerMarketingJob] Failed to fetch customer emails: {exc}", exc_info=True)
-                return
+        try:
+            with get_db_cursor(commit=False, db_config=get_db_config()) as cursor:
+                cursor.execute(customers_query)
+                rows = cursor.fetchall()
+                for row in rows:
+                    customers.append({
+                        "company_name": row["company_name"],
+                        "email": row["email"],
+                        "contact_name": row["contact_name"]
+                    })
+        except Exception as exc:
+            logger.error(f"[MonthlyBestSellerMarketingJob] Failed to fetch customer emails: {exc}", exc_info=True)
+            return
 
         if not customers:
             logger.warning("[MonthlyBestSellerMarketingJob] No target customers with emails found. Exiting.")
@@ -116,6 +104,7 @@ class MonthlyBestSellerMarketingJob(BaseCronJob):
 
         async with httpx.AsyncClient() as client:
             for cust in customers:
+                recipient = test_email or os.getenv("TEST_EMAIL") or cust["email"]
                 email_body = f"""Dear {cust['contact_name']},
 
 We are pleased to share our top 5 best-selling products of this month with you! These items are highly popular among our clients right now:
@@ -135,19 +124,19 @@ Sales & Marketing Team
 <b>Sales & Marketing Team</b></p>
 """
                 payload = {
-                    "to": cust["email"],
+                    "to": recipient,
                     "subject": "Our Top 5 Best-Selling Products of the Month!",
                     "text": email_body,
                     "html": email_html
                 }
 
                 try:
-                    logger.info(f"[MonthlyBestSellerMarketingJob] Sending email to {cust['email']} ({cust['company_name']})")
+                    logger.info(f"[MonthlyBestSellerMarketingJob] Sending email to {recipient} (Original: {cust['email']}) for {cust['company_name']}")
                     resp = await client.post(node_api_url, json=payload)
                     resp.raise_for_status()
                     success_count += 1
                 except Exception as exc:
-                    logger.error(f"[MonthlyBestSellerMarketingJob] Failed to send email to {cust['email']}: {exc}")
+                    logger.error(f"[MonthlyBestSellerMarketingJob] Failed to send email to {recipient}: {exc}")
                     failure_count += 1
 
         logger.info(

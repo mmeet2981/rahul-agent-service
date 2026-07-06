@@ -25,6 +25,9 @@ def get_database_agent(user_id: int = None, history: List[Message] = [], module:
     if not os.path.exists(db_info_dir):
         os.makedirs(db_info_dir, exist_ok=True)
 
+    if message_type == "email":
+        module = "purchase"
+
     # Load only the schema for the selected module
     if module:
         schema_file = f"{module}.txt"
@@ -81,8 +84,8 @@ You MUST ALWAYS call the `get_schema` tool FIRST for any table you intend to que
 If the user's message is an incoming email and contains "po reference" followed by an ID:
 1. **Extract the ID**. This is the `external_reference_id`.
 2. **Determine Intent**: Read the email to find the intended status (e.g., "completed", "rejected").
-3. **MANDATORY SEARCH**: Call `execute_query` to fetch ALL rows from `status_type_master` (columns: `id`, `name`). 
-4. **DECIDE STATUS ID**: Compare the email intent with the `name` column from the search results. Select the most appropriate numeric `id`.
+3. **MANDATORY SEARCH**: Call `execute_query` to search for matching statuses in `status_type_master` (columns: `id`, `name`) using a filter based on the intent (e.g., `WHERE name ILIKE '%[intent]%'` such as `%pending%`, `%approve%`, or `%reject%`).
+4. **DECIDE STATUS ID**: Select the most appropriate numeric `id` from the query result. If no matching status is found, fallback to status ID 2 (PENDING).
 5. **PERFORM UPDATE**: Use `execute_query` to run: `UPDATE purchase_details SET status_id = [selected_id] WHERE external_reference_id = '[extracted_id]'`.
 6. **VERIFY & CONFIRM**: Check that `execute_query` reports rows affected. Then send the professional acknowledgement.
 
