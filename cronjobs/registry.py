@@ -15,7 +15,7 @@ CRON_REGISTRY = [
     # Runs every day at 08:30
     ("30 8 * * *", DailyPurchaseSuggestionJob()),
     # Runs at 09:00 on the 1st day of every month
-    ("* * * * *", MonthlyBestSellerMarketingJob()),
+    ("0 9 1 * *", MonthlyBestSellerMarketingJob()),
     # Runs at 10:00 every day
     ("0 10 * * *", PendingSalesInquiriesJob()),
     # Runs at 11:00 every day
