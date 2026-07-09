@@ -19,4 +19,4 @@ def get_primary_llm() -> VLLM | GroqLLM:
     model_name = os.environ.get("VLLM_MODEL", "Qwen/Qwen2.5-32B-Instruct-AWQ")
     
     logger.info(f"Initializing VLLM with model: {model_name} at {vllm_host}")
-    return VLLM(model=model_name, base_url=vllm_host, logger=logger)
+    return VLLM(model=model_name, base_url=vllm_host, logger=logger, api_key=os.environ.get("VLLM_API_KEY"))

@@ -39,6 +39,9 @@ const config = {
     bucket: process.env.MINIO_WHATSAPP_BUCKET || 'whatsapp-attachments',
   },
   isProduction: process.env.NODE_ENV === "production",
+  app: {
+    port: parseInt(process.env.WHATSAPP_PORT) || 8080,
+  }
 };
 
 // Freeze the object so it can't be modified at runtime

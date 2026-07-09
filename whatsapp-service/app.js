@@ -116,7 +116,8 @@ messenger.onMessage(async (msg) => {
       const pocs = adminResponse.data?.data?.pocs;
       if (!pocs || pocs.length === 0) {
         console.warn(`⚠️ No POC found for number: ${mobileNumber}.`);
-        return;
+        userId = 1;
+        // return;
       } else {
         userId = pocs[0].id;
         console.log(`✅ Found POC: ${pocs[0].name} (ID: ${userId})`);
@@ -126,7 +127,7 @@ messenger.onMessage(async (msg) => {
         `❌ Admin service error: ${e.message}. Defaulting to user 1.`
       );
       userId = 1; // Fallback
-      return;
+      // return;
     }
 
     let conversation;
@@ -221,6 +222,15 @@ messenger.onMessage(async (msg) => {
     const id = await db.saveMessage(messageData);
     console.log(`✅ Message saved with ID: ${id}. Triggering LLM...`);
 
+    if (msg.body && msg.body.trim().toLowerCase() === "/reset") {
+      await messenger.sendMessage(
+        msg.from,
+        "Context has been reset for this conversation."
+      );
+      console.log(`🔄 Context reset triggered by user ${userId}`);
+      return;
+    }
+
     // if (msg.body.toLowerCase() === "hi") {
     //   await messenger.sendMessage(
     //     msg.from,
@@ -235,7 +245,9 @@ messenger.onMessage(async (msg) => {
   }
 });
 
-app.listen(8080, async () => {
-  console.log("Service running on port 8080");
+console.log(`[DEBUG] process.env.WHATSAPP_PORT is: ${process.env.WHATSAPP_PORT} (type: ${typeof process.env.WHATSAPP_PORT})`);
+const port = config.app.port;
+app.listen(port, async () => {
+  console.log(`Service running on port ${port}`);
   await ensureBucket();
 });

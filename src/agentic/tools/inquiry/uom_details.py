@@ -16,7 +16,7 @@ async def get_uoms():
             uoms = response.json().get("data", {}).get("data",[])
             result_str = "Available Units of Measure (UOM):\n"
             for u in uoms:
-                result_str += f"{u['id']} - {u['unit_name']}\n"
+                result_str += f"{u['id']} - {u['unit_name']} - {u['unit_code']}\n"
             return result_str
     except Exception as e:
         logger.error(f"Error fetching UOMs: {e}")

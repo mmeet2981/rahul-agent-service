@@ -19,7 +19,12 @@ async def get_poc_details(customer_id: str):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=payload)
-            data = response.json().get("data", {})
+            response = response.json()
+            if response.get("success") == False:
+                logger.error(f"Error fetching POCs: {response.get('error').get('message')}")
+                raise ValueError(response.get("error").get("message"))
+                
+            data = response.get("data", {})
             pocs = data.get("pocs", [])
             if not pocs:
                 return "No POCs found for this customer."
