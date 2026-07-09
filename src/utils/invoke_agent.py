@@ -48,6 +48,10 @@ async def invoke_agent(conversation_id: int, message_id: int, message_type: str 
     # For WhatsApp, the message_id often points to the incoming user message itself.
     valid_msgs = []
     for m in full_history:
+        if m.role == 'user' and m.content and str(m.content).strip().lower() == '/reset':
+            valid_msgs = [] # Clear history up to this point
+            continue # Do not include the /reset message itself
+
         if m.id == message_id:
             if m.role == 'assistant':
                 continue # Skip placeholder

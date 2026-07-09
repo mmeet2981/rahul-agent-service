@@ -137,7 +137,6 @@ class GroqLLM(BaseLLM):
     def _convert_tool_to_groq_format(self, tool: Tool) -> Dict:
         """Convert Tool to Groq (OpenAI) format"""
         # Ensure name matches regex ^[a-zA-Z0-9_-]+$ (OpenAI strictness)
-        # Groq might be similar.
         name = tool.name
         if not re.match(r'^[a-zA-Z0-9_-]+$', name):
              name = re.sub(r'[^a-zA-Z0-9_-]', '_', name)
@@ -162,6 +161,41 @@ class GroqLLM(BaseLLM):
                 }
             }
         }
+
+    def _parse_legacy_function_calls(self, content: str) -> Optional[List[ToolCall]]:
+        """
+        Fallback parser for Groq's legacy <function=name{...}></function> or
+        <function=name {...}></function> format that some models emit instead of
+        proper OpenAI tool call deltas.
+        Returns a list of ToolCall objects if found, else None.
+        """
+        # Match variants Groq models have been seen to emit:
+        #   <function=name{...}>
+        #   <function=name {...}>
+        #   <function=name({...})>   ← parenthesized JSON
+        pattern = re.compile(
+            r'<function=([\w-]+)\s*\(?\s*(\{.*?\})\s*\)?(?:</function>|>)',
+            re.DOTALL
+        )
+        matches = pattern.findall(content)
+        if not matches:
+            return None
+
+        tool_calls = []
+        for i, (name, args_str) in enumerate(matches):
+            try:
+                args = json.loads(args_str)
+                if not isinstance(args, dict):
+                    args = {}
+            except (json.JSONDecodeError, TypeError):
+                args = {}
+            tool_calls.append(ToolCall(
+                id=f"call_legacy_{i}",
+                name=name,
+                arguments=args
+            ))
+            self.logger.info(f"Parsed legacy function call: {name}({args})")
+        return tool_calls if tool_calls else None
 
     async def generate(
         self, 
@@ -343,63 +377,90 @@ class GroqLLM(BaseLLM):
             raise RuntimeError(f"Chat error: {str(e)}")
         
     async def _stream_chat_response(self, body: Dict) -> AsyncGenerator[Message, None]:
-        """Stream a chat response"""
+        """Stream a chat response with fallback for legacy <function=...> tool call format."""
         try:
             url = "/chat/completions"
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
             }
-            
+
             stream_gen = await self.client.request_async("POST", url, stream=True, json=body, headers=headers)
-            
+
             # State for accumulating tool calls across chunks
             tool_call_chunks = {}
-            
+            accumulated_content = ""
+
             buffer = ""
             async for chunk in stream_gen:
                 chunk_str = chunk.decode('utf-8')
                 buffer += chunk_str
-                
+
                 while '\n' in buffer:
                     line, buffer = buffer.split('\n', 1)
                     line = line.strip()
-                    
+
                     if not line:
                         continue
 
                     if line.startswith('data: '):
                         line = line[6:]
-                    
+
                     if line == '[DONE]':
                         break
-                        
+
                     try:
                         data = json.loads(line)
+
+                        # --- Groq sends errors as a JSON object in the stream ---
                         if "error" in data:
                             error_msg = json.dumps(data["error"])
                             self.logger.error(f"Groq API Error: {error_msg}")
+
+                            # Check if this is a legacy tool_use_failed error and we
+                            # accumulated content that contains legacy <function=...> tags.
+                            if "tool_use_failed" in error_msg or "failed_generation" in error_msg:
+                                # Try to extract the failed_generation text from the error
+                                try:
+                                    err_obj = json.loads(error_msg)
+                                    failed_gen = err_obj.get("failed_generation", "")
+                                except Exception:
+                                    failed_gen = ""
+
+                                search_text = accumulated_content + failed_gen
+                                legacy_calls = self._parse_legacy_function_calls(search_text)
+                                if legacy_calls:
+                                    self.logger.info("Recovering from legacy tool call format in stream.")
+                                    yield Message(
+                                        role="assistant",
+                                        content=None,
+                                        images=[],
+                                        tool_calls=legacy_calls
+                                    )
+                                    return  # Successfully recovered
+
                             raise RuntimeError(f"Groq API Error: {error_msg}")
 
                         if "choices" in data and data["choices"]:
                             delta = data["choices"][0].get("delta", {})
-                            
-                            # Handle content
+
+                            # Handle content — accumulate for legacy fallback detection
                             if "content" in delta and delta["content"]:
+                                accumulated_content += delta["content"]
                                 yield Message(
                                     role="assistant",
                                     content=delta["content"],
                                     images=[],
                                     tool_calls=[]
                                 )
-                            
+
                             # Handle tool calls (which come in chunks)
                             if "tool_calls" in delta:
                                 for tc_chunk in delta["tool_calls"]:
                                     idx = tc_chunk.get("index", 0)
                                     if idx not in tool_call_chunks:
                                         tool_call_chunks[idx] = {"id": "", "name": "", "arguments": ""}
-                                    
+
                                     if "id" in tc_chunk:
                                         tool_call_chunks[idx]["id"] += tc_chunk["id"]
                                     if "function" in tc_chunk:
@@ -410,16 +471,23 @@ class GroqLLM(BaseLLM):
                                             tool_call_chunks[idx]["arguments"] += fn["arguments"]
 
                     except json.JSONDecodeError:
-                         continue
-            
-            # Yield accumulated tool calls at the end of the stream
-            # Note: Streaming method usually yields partial content. 
-            # Tool calls are typically atomic when executed, but streaming them structure-wise is complex.
-            # Here we follow a pattern where we might yield a final message with tool calls?
-            # Or we should have yielded them as they complete?
-            # A common pattern in streaming agents is to yield a specific object for tool calls.
-            # For strict `AsyncGenerator[Message, None]`, we can yield a message with the tool call when it's fully formed.
-            
+                        continue
+
+            # --- Check accumulated content for legacy <function=...> tags ---
+            # (Some models emit them as plain content tokens instead of tool_call deltas)
+            if accumulated_content and not tool_call_chunks:
+                legacy_calls = self._parse_legacy_function_calls(accumulated_content)
+                if legacy_calls:
+                    self.logger.info("Detected legacy function call format in accumulated content.")
+                    yield Message(
+                        role="assistant",
+                        content=None,
+                        images=[],
+                        tool_calls=legacy_calls
+                    )
+                    return
+
+            # Yield accumulated proper tool calls at the end of the stream
             if tool_call_chunks:
                 tool_calls = []
                 for idx in sorted(tool_call_chunks.keys()):
@@ -429,25 +497,27 @@ class GroqLLM(BaseLLM):
                         if not isinstance(args, dict):
                             args = {}
                     except (json.JSONDecodeError, TypeError):
-                        args = {} # Best effort or raw string?
-                        
+                        args = {}
+
                     tool_calls.append(ToolCall(
                         id=tc["id"],
                         name=tc["name"],
                         arguments=args
                     ))
-                
+
                 yield Message(
                     role="assistant",
                     content=None,
                     images=[],
                     tool_calls=tool_calls
                 )
-                    
+
         except httpx.HTTPStatusError as exc:
             error_text = exc.response.text if hasattr(exc.response, 'text') else str(exc)
             self.logger.error(f"HTTP error in stream chat response: {error_text}")
             raise RuntimeError(f"HTTP error: {error_text}")
+        except RuntimeError:
+            raise
         except Exception as e:
             self.logger.error(f"Stream chat error: {str(e)}")
             raise RuntimeError(f"Stream error: {str(e)}")

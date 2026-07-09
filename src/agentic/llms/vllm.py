@@ -25,6 +25,8 @@ OPENAI_MODEL_CAPABILITIES: Dict[str, List[LLMCapability]] = {
     'Qwen/Qwen2.5-VL-7B-Instruct': [LLMCapability.COMPLETION, LLMCapability.VISION],
     'glm-ocr:latest': [LLMCapability.COMPLETION, LLMCapability.VISION],
     'glm-ocr': [LLMCapability.COMPLETION, LLMCapability.VISION],
+    'QuantTrio/Qwen3.5-9B-AWQ': [LLMCapability.TOOLS, LLMCapability.COMPLETION],
+    'Qwen/Qwen3.5-9B' : [LLMCapability.TOOLS, LLMCapability.COMPLETION],
 }
 
 _Role = Literal["user", "assistant", "system", "tool"]
