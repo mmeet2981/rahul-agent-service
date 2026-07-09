@@ -94,7 +94,11 @@ async def invoke_agent(conversation_id: int, message_id: int, message_type: str 
                 module = agent_name.split(":")[1]
             agent = get_database_agent(user_id=conversation.user_id, history=raw_history, module=module, message_type=message_type)
         elif agent_name.startswith("inquiry"):
-            agent = get_inquiry_agent(user_id=conversation.user_id, history=raw_history)
+            agent = get_inquiry_agent(
+                user_id=conversation.user_id,
+                history=raw_history,
+                conversation_id=conversation_id,
+            )
             print("I am inquiry")
         else:
             # Fallback to test agent for other names like "TestAgent" or "Agent"
