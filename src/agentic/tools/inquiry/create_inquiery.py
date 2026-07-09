@@ -136,25 +136,43 @@ async def create_inquiry(
         # Non-fatal — proceed with None; API may handle missing addresses gracefully
 
     # --- 4. Build products array ---
+    def _to_int(val, default=None):
+        """Coerce val to int; return default on failure."""
+        if val is None:
+            return default
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return default
+
+    def _to_float(val, default=None):
+        """Coerce val to float; return default on failure."""
+        if val is None:
+            return default
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return default
+
     products_payload = []
     for i in range(len(id_list)):
         products_payload.append({
-            "product_id":   id_list[i],
+            "product_id":   _to_int(id_list[i]),
             "product_name": name_list[i],
-            "quantity":     _get(qty_list, i, 0),
-            "uom_id":       _get(uom_list, i),
-            "size":         _get(size_list, i, ""),
-            "gsm":          _get(gsm_list, i, 0),
-            "specifications": _get(spec_list, i, ""),
+            "quantity":     _to_float(_get(qty_list, i, 0), 0),
+            "uom_id":       _to_int(_get(uom_list, i)),
+            "size":         _get(size_list, i, "") or "",
+            "gsm":          _to_float(_get(gsm_list, i, 0), 0),
+            "specifications": _get(spec_list, i, "") or "",
             "size_1":       _get(size1_list, i),
             "size_2":       _get(size2_list, i),
             "size_cm":      _get(size_cm_list, i),
             "size_inch":    _get(size_inch_list, i),
-            "sheet_count":  _get(sheet_list, i),
-            "ream_weight":  _get(ream_list, i),
-            "total_price":  _get(price_list, i),
-            "total_weight": _get(weight_list, i),
-            "extra_sheets": _get(extra_list, i),
+            "sheet_count":  _to_int(_get(sheet_list, i)),
+            "ream_weight":  _to_float(_get(ream_list, i)),
+            "total_price":  _to_float(_get(price_list, i)),
+            "total_weight": _to_float(_get(weight_list, i)),
+            "extra_sheets": _to_int(_get(extra_list, i)),
         })
 
     # --- 5. Build full payload ---
