@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-RAW_DATA_DIR = Path("/home/gopi/Downloads/Final Sorted Data")
+RAW_DATA_DIR = Path("Final Sorted Data")
 OUTPUT_PATH = Path(__file__).parent / "monthly_sales.csv"
 
 KNOWN_COMPANIES = [
