@@ -17,8 +17,8 @@ MODEL_PATH = Path(__file__).parent / "model.joblib"
 SERIES_PATH = Path(__file__).parent / "series_features.csv"
 
 # the model only ever trained on up to 3 months of lag history; recursively
-# forecasting further out than that just compounds noise, so series whose last
-# known month is older than this are reported as stale instead of guessed
+# forecasting further out than that just compounds noise, so a number is still
+# returned but flagged as low-confidence once the series is this stale
 MAX_FORECAST_HORIZON_MONTHS = 3
 
 
@@ -52,18 +52,8 @@ def forecast_month(target_period: pd.Period, company_filter: str | None, product
 
     # everything else needs forecasting, batched by "how many months ahead" so every
     # series in a batch takes the same number of recursive prediction steps at once
-    candidates = last_rows[~known_mask].copy()
-    candidates["steps_ahead"] = candidates["month"].apply(lambda m: (target_period - m).n)
-
-    stale_mask = candidates["steps_ahead"] > MAX_FORECAST_HORIZON_MONTHS
-    stale = candidates[stale_mask].copy()
-    stale["predicted_quantity"] = float("nan")
-    stale["predicted_value"] = float("nan")
-    stale["basis"] = stale.apply(
-        lambda r: f"insufficient recent data (last sale: {r['month']}, {r['steps_ahead']} months stale)", axis=1
-    )
-
-    to_forecast = candidates[~stale_mask].copy()
+    to_forecast = last_rows[~known_mask].copy()
+    to_forecast["steps_ahead"] = to_forecast["month"].apply(lambda m: (target_period - m).n)
     to_forecast["company_code"] = to_forecast["company"].map(company_categories.index)
 
     qty_hist = to_forecast[["quantity", "quantity_lag1", "quantity_lag2"]].to_numpy(dtype=float)
@@ -121,14 +111,23 @@ def forecast_month(target_period: pd.Period, company_filter: str | None, product
         n_seen = np.where(active, n_seen + 1, n_seen)
         remaining = np.where(active, remaining - 1, remaining)
 
-    to_forecast["predicted_quantity"] = qty_hist[:, 0].round(1)
+    # rounded to whole units - the model's error margin is far larger than a decimal
+    # point, so showing fractional precision would be misleading, not more accurate
+    to_forecast["predicted_quantity"] = qty_hist[:, 0].round(0)
     # value is never predicted directly - it's always quantity * rate, so the two numbers
     # can never imply a unit price that never actually happened
-    to_forecast["predicted_value"] = (qty_hist[:, 0] * rate_hist[:, 0]).round(1)
-    to_forecast["basis"] = to_forecast["steps_ahead"].apply(lambda n: f"forecast ({n} month(s) ahead)")
+    to_forecast["predicted_value"] = (qty_hist[:, 0] * rate_hist[:, 0]).round(0)
+
+    def make_basis(n: int) -> str:
+        base = f"forecast ({n} month(s) ahead)"
+        if n > MAX_FORECAST_HORIZON_MONTHS:
+            return f"{base} — low confidence, data is {n} months stale"
+        return base
+
+    to_forecast["basis"] = to_forecast["steps_ahead"].apply(make_basis)
 
     cols = ["company", "product", "predicted_quantity", "predicted_value", "basis"]
-    df = pd.concat([known_results[cols], to_forecast[cols], stale[cols]], ignore_index=True)
+    df = pd.concat([known_results[cols], to_forecast[cols]], ignore_index=True)
     df = df.sort_values("predicted_value", ascending=False, na_position="last").reset_index(drop=True)
     return df
 
