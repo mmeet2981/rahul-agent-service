@@ -17,12 +17,12 @@ from cronjobs.jobs.test_hello.job import TestHelloJob
 # cron_expression format: "minute hour day month weekday"
 CRON_REGISTRY = [
     # Runs every day at 08:30
-    ("30 02 * * *", DailyPurchaseSuggestionJob()),
-    # Runs at 09:00 on the 1st day of every month
-    ("0 9 1 * *", MonthlyBestSellerMarketingJob()),
-    # Runs at 10:00 every day
-    ("0 10 * * *", PendingSalesInquiriesJob()),
-    # Runs at 11:00 every day
-    ("0 11 * * *", PendingPaymentsJob()),
+    # ("30 02 * * *", DailyPurchaseSuggestionJob()),
+    # # Runs at 09:00 on the 1st day of every month
+    # ("0 9 1 * *", MonthlyBestSellerMarketingJob()),
+    # # Runs at 10:00 every day
+    # ("0 10 * * *", PendingSalesInquiriesJob()),
+    # # Runs at 11:00 every day
+    # ("0 11 * * *", PendingPaymentsJob()),
     ("* * * * *", TestHelloJob()),   # every 1 minute
 ]
