@@ -120,6 +120,18 @@ class PurchaseSuggestionRepository:
                 ORDER BY im.product_id, pd.created_at DESC
             ),
 
+            -- 4a. Fallback supplier (most frequent supplier overall with entity_type_id = 2)
+            fallback_supplier_cte AS (
+                SELECT pd.supplier_entity_id
+                FROM purchase_details pd
+                JOIN entity_master em ON em.id = pd.supplier_entity_id
+                WHERE em.entity_type_id = 2
+                  AND pd.is_deleted = false
+                GROUP BY pd.supplier_entity_id
+                ORDER BY COUNT(pd.id) DESC
+                LIMIT 1
+            ),
+
             -- 5. Rate, UOM, and weight per product (from most recent item_master)
             rate_uom_cte AS (
                 SELECT DISTINCT ON (im.product_id)
@@ -161,7 +173,7 @@ class PurchaseSuggestionRepository:
                         0
                     )                                                       AS min_stock_qty,
 
-                    s.supplier_entity_id,
+                    COALESCE(s.supplier_entity_id, fs.supplier_entity_id)   AS supplier_entity_id,
                     COALESCE(cs.current_stock, 0)                           AS current_stock,
                     COALESCE(pi.pending_inwards, 0)                         AS pending_inwards,
                     COALESCE(os.open_sale_qty, 0)                           AS open_sale_qty,
@@ -191,6 +203,7 @@ class PurchaseSuggestionRepository:
                 LEFT JOIN current_stock_cte cs   ON cs.product_id = pl.id
                 LEFT JOIN pending_inwards_cte pi ON pi.product_id = pl.id
                 LEFT JOIN open_sale_cte os       ON os.product_id = pl.id
+                CROSS JOIN fallback_supplier_cte fs
             )
             SELECT * 
             FROM final_evaluation

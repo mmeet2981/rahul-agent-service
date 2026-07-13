@@ -10,3 +10,5 @@ uv run yoyo apply --database postgresql://postgres:postgres@127.0.0.1:5432/agent
 
 
 docker compose -f .\docker-compose.development.yml up
+
+docker compose -f docker-compose.development.yml up ---> linux
