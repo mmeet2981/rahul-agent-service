@@ -15,3 +15,5 @@ wheels/
 # Local data and reports
 database_session/
 *.pdf
+
+test

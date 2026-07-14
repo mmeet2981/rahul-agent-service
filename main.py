@@ -1,16 +1,24 @@
-from fastapi import FastAPI
-from src.api import main_router as APIRouter
-from src.sse.router import router as SSERouter
-from src.middlewares.logger import LoggingMiddleware
-from fastapi.middleware.cors import CORSMiddleware
+import logging
 import os
-from src.events import startup, shutdown
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI()
+# ── Logging setup — configure FIRST so every module's logger works ────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+# ─────────────────────────────────────────────────────────────────────────────
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from src.api import main_router as APIRouter
+from src.sse.router import router as SSERouter
+from src.middlewares.logger import LoggingMiddleware
+from src.events import startup, shutdown
 
 
 @asynccontextmanager
@@ -20,6 +28,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await shutdown(app)
+
+
+# lifespan is defined above, so FastAPI can reference it here
+app = FastAPI(lifespan=lifespan)
 
 
 app.add_middleware(
@@ -54,7 +66,7 @@ app.include_router(SSERouter)
 if __name__ == "__main__":
     import uvicorn
 
-    DEFAULT_PORT = "3030"
+    DEFAULT_PORT = "3031"
     try:
         port = int(os.environ.get("PORT", DEFAULT_PORT))
     except Exception:
