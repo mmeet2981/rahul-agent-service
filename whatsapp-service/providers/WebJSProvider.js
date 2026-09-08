@@ -9,7 +9,17 @@ class WebJSProvider {
     });
 
     this.client.on("qr", (qr) => qrcode.generate(qr, { small: true }));
-    this.client.on("ready", () => console.log("WhatsApp Web is ready!"));
+    this.client.on("authenticated", () => console.log("🔐 WhatsApp authenticated successfully"));
+    this.client.on("loading_screen", (percent, message) =>
+      console.log(`⏳ Loading WhatsApp: ${percent}% - ${message}`)
+    );
+    this.client.on("auth_failure", (msg) =>
+      console.error("❌ Authentication failure:", msg)
+    );
+    this.client.on("ready", () => console.log("✅ WhatsApp Web is ready!"));
+    this.client.on("disconnected", (reason) =>
+      console.warn("⚠️ WhatsApp disconnected:", reason)
+    );
     this.client.initialize();
   }
 

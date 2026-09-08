@@ -94,6 +94,38 @@ async def invoke_agent(conversation_id: int, message_id: int, message_type: str 
                 module = agent_name.split(":")[1]
             agent = get_database_agent(user_id=conversation.user_id, history=raw_history, module=module, message_type=message_type)
         elif agent_name.startswith("inquiry"):
+            from src.agentic.tools.inquiry.template_handler import (
+                is_template_request,
+                is_template_format,
+                get_template_text,
+                handle_template_inquiry,
+            )
+
+            # 1. Check if user is asking for the template format
+            if is_template_request(user_input):
+                yield get_template_text()
+                return
+
+            # 2. Check if user submitted an inquiry via template
+            if is_template_format(user_input):
+                logger.info(f"Processing inquiry template for conversation {conversation_id}")
+                sender_phone = None
+                if message_type == "whatsapp":
+                    from src.services.whatsapp_service import WhatsAppService
+                    wa_msg = WhatsAppService.get_message(message_id)
+                    if wa_msg:
+                        sender_phone = wa_msg.from_number
+
+                async for chunk in handle_template_inquiry(
+                    text=user_input,
+                    conversation_id=conversation_id,
+                    user_id=conversation.user_id,
+                    sender_phone=sender_phone,
+                ):
+                    yield chunk
+                return
+
+            # 3. Fallback: Standard step-by-step LLM inquiry flow
             agent = get_inquiry_agent(
                 user_id=conversation.user_id,
                 history=raw_history,

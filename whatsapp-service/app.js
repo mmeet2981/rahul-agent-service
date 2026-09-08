@@ -251,3 +251,19 @@ app.listen(port, async () => {
   console.log(`Service running on port ${port}`);
   await ensureBucket();
 });
+
+const gracefulShutdown = async () => {
+  console.log("\nShutting down gracefully...");
+  try {
+    if (messenger?.client) {
+      await messenger.client.destroy();
+    }
+  } catch (err) {
+    console.error("Error closing WhatsApp client:", err);
+  }
+  process.exit(0);
+};
+
+process.on("SIGINT", gracefulShutdown);
+process.on("SIGTERM", gracefulShutdown);
+

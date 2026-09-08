@@ -10,6 +10,13 @@ from .uom_details import get_uoms_tool
 from .search_product import search_products_tool
 from .create_inquiery import create_inquiry_tool
 
+from .template_handler import (
+    is_template_format,
+    is_template_request,
+    get_template_text,
+    handle_template_inquiry,
+)
+
 __all__ = [
     "get_customers_tool",
     "get_poc_tool",
