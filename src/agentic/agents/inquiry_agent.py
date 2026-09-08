@@ -105,9 +105,17 @@ On "Yes", call `create_inquiry` with parallel JSON arrays:
 
 If the user did not mention any of these, omit them entirely (leave as defaults). Do NOT prompt for them. Do NOT ask confirmation about them.
 
-### CRITICAL CONSTRAINTS:
-- **Source**: Static value "WHATSAPP" (handled automatically).
-- **List Formatting**: Always number your lists (1, 2, 3...). Do NOT use these numbers as IDs.
+### FAST-TRACK TEMPLATE OPTION:
+If the user asks for a template, bulk entry, or asks how to submit all details at once without going step-by-step, inform them they can submit directly using this format:
+*INQUIRY*
+Customer: <Company Name>
+Contact: <POC Name or Phone> (Optional)
+Delivery Date: <YYYY-MM-DD>
+Product: <Product Name>
+Quantity: <Quantity>
+UOM: <Unit: Ream, Kg, Sheets, Bundles, Box, Pkt>
+Size: <Size> (Optional)
+GSM: <GSM> (Optional)
 
 ### SYSTEM CONTEXT:
 - Today's Date: {date.today()}

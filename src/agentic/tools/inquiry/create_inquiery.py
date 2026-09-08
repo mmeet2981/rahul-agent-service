@@ -11,12 +11,19 @@ No server-side product registry is used.
 import os
 import json
 import httpx
+from dotenv import load_dotenv
 from RAW.modals import Tool
 from RAW.modals.tools import ToolParam
 from src.utils import logger, get_db_cursor
 from src.utils.database import get_db_config
 
-API_BASE_URL = os.getenv("BACKEND_HOST", "http://192.168.1.62:3000")
+load_dotenv()
+
+def get_backend_url() -> str:
+    host = os.getenv("BACKEND_HOST") or "http://192.168.18.111:8080"
+    return host.rstrip("/")
+
+API_BASE_URL = get_backend_url()
 
 
 async def create_inquiry(
@@ -176,7 +183,7 @@ async def create_inquiry(
         })
 
     # --- 5. Build full payload ---
-    url = f"{API_BASE_URL}/v1/inquiries-service"
+    url = f"{get_backend_url()}/v1/inquiries-service"
     payload = {
         "source": "WHATSAPP",
         "source_reference": None,
@@ -210,22 +217,39 @@ async def create_inquiry(
         "auto_generate_do": auto_generate_do,
         "company_id": company_id,
     }
-    print(f"Inquiry Payload: {payload}")
+
+    print(f"\n==================== [INQUIRY SUBMISSION] ====================")
+    print(f"Target URL: {url}")
+    print(f"Payload:\n{json.dumps(payload, indent=2)}")
+    print(f"==============================================================")
 
     # --- 6. Submit ---
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=payload)
-            response.raise_for_status()
+            print(f"\n[INQUIRY RESPONSE] Status Code: {response.status_code}")
+            print(f"[INQUIRY RESPONSE] Response Body:\n{response.text}\n")
+
+            if response.status_code >= 400:
+                logger.error(f"Inquiry API error {response.status_code}: {response.text}")
+                return f"ERROR: Failed to create inquiry ({response.status_code}): {response.text}"
+
+            res_json = response.json()
+            inner = res_json.get("data", {}) or {}
+            inquiry_code = inner.get("inquiry_code") or (inner.get("data", {}) or {}).get("inquiry_code", "")
 
         product_names_str = ", ".join(name_list)
+        code_str = f" [Code: {inquiry_code}]" if inquiry_code else ""
         return (
-            f"SUCCESS: Inquiry created successfully for {len(id_list)} product(s): "
+            f"SUCCESS: Inquiry created successfully{code_str} for {len(id_list)} product(s): "
             f"{product_names_str}."
         )
     except Exception as e:
-        logger.error(f"Failed to create inquiry: {e}")
-        return f"ERROR: Failed to create inquiry. {str(e)}"
+        import traceback
+        tb = traceback.format_exc()
+        print(f"\n[INQUIRY SUBMISSION EXCEPTION] {type(e).__name__}: {e}\n{tb}")
+        logger.error(f"Failed to create inquiry: {type(e).__name__}: {e}\n{tb}")
+        return f"ERROR: Failed to create inquiry. {type(e).__name__}: {str(e)}"
 
 
 create_inquiry_tool = Tool(

@@ -19,8 +19,14 @@ class MessageController {
         throw new Error(result.error || "Unknown sending error");
       }
 
+      const messageId =
+        result.response?.id?._serialized ||
+        result.response?.id?.id ||
+        result.response?.id ||
+        `msg_${Date.now()}`;
+
       await this.db.saveMessage({
-        whatsapp_id: result.response.id.id,
+        whatsapp_id: messageId,
         from_number: number,
         body: message,
         is_from_me: true,
