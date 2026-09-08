@@ -78,17 +78,25 @@ services:
       context: ./whatsapp-service
     restart: always
     ports:
-      - "8080:8080"
+      - "${WHATSAPP_PORT:-8077}:${WHATSAPP_PORT:-8077}"
     env_file:
       - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DB_HOST=db
       - DB_PORT=5432
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_WHATSAPP_BUCKET=whatsapp-attachments
+      - WHATSAPP_PORT=${WHATSAPP_PORT:-8077}
+      - BACKEND_HOST=http://host.docker.internal:3000
+      - AGENT_HOST=http://host.docker.internal:3044
+      - ALLOWED_GROUP_IDS=120363423084776328@g.us
+    volumes:
+      - whatsapp_auth:/app/.wwebjs_auth
     depends_on:
       db:
         condition: service_healthy
@@ -99,3 +107,4 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  whatsapp_auth:

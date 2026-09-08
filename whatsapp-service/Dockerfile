@@ -52,6 +52,9 @@ RUN npm install
 
 COPY . .
 
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
 EXPOSE 8080
 
-CMD ["node", "app.js"]
+CMD ["./entrypoint.sh"]

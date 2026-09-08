@@ -245,7 +245,9 @@ messenger.onMessage(async (msg) => {
   }
 });
 
-app.listen(8077, async () => {
-  console.log("Service running on port 8077");
+console.log(`[DEBUG] process.env.WHATSAPP_PORT is: ${process.env.WHATSAPP_PORT} (type: ${typeof process.env.WHATSAPP_PORT})`);
+const port = config.app.port;
+app.listen(port, async () => {
+  console.log(`Service running on port ${port}`);
   await ensureBucket();
 });

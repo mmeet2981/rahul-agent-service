@@ -59,7 +59,8 @@ services:
     image: rahulaiservices.azurecr.io/whatsapp-service:latest
     container_name: agent-service-whatsapp-service
     restart: unless-stopped
-
+    ports:
+      - "${WHATSAPP_PORT:-8077}:${WHATSAPP_PORT:-8077}"
     env_file:
       - .env.prod
     environment:
@@ -67,9 +68,15 @@ services:
       - DB_PORT=${DB_PORT}
       - MINIO_ENDPOINT=minio
       - MINIO_PORT=9000
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_WHATSAPP_BUCKET=whatsapp-attachments
+      - WHATSAPP_PORT=${WHATSAPP_PORT:-8077}
+      - BACKEND_HOST=${BACKEND_HOST}
+      - AGENT_HOST=http://app:${PORT:-3044}
+      - ALLOWED_GROUP_IDS=${ALLOWED_GROUP_IDS}
+    volumes:
+      - whatsapp_auth:/app/.wwebjs_auth
     depends_on:
       minio:
         condition: service_healthy
@@ -139,3 +146,4 @@ services:
 volumes:
   redis_data:
   minio_data:
+  whatsapp_auth:
